@@ -11,8 +11,15 @@ const UserSchema = new Schema({
         required: true,
         unique: true,
         lowercase: true,
-        trim: true,
-        index: true,
+        trim: true, // Remove Spacing 
+        index: true, // Make Search Fast 
+
+        /*
+        Why index: true ? ---> Create's a database index on this file 
+        Think of it's like a book index page 
+        instead of reading every page to find a word you Jump directly to the right page 
+        Makes Searching by username very fast 
+        */
     },
     email: {
         type: String,
@@ -37,6 +44,9 @@ const UserSchema = new Schema({
 
     /* REMEMBER THIS REFRENCE SYNTAC */
     WatchHistory: [
+
+        // An Array of Video ID's store all video's a user has watched 
+        // User see any video we will push it's ID in thie Array to track is easily .... 
         {
             type: Schema.Types.ObjectId,
             ref: "Video"
@@ -53,12 +63,24 @@ const UserSchema = new Schema({
 }, { timestamps: true })
 
 /* Working on Hooks : PRE - Middle Ware using Next */
+
+
+
+// What is Pre ? : A function that run's automatically before / after a database operation
+// Run Before Saving to DataBase Every tie : "Save"
+// 
 UserSchema.pre("save", async function (next) {
     /* next : Pass Further this flag  */
-    if (!this.isModified("password")) {
-        return next()
+
+    // Smart Check : Imagine user update's their profile pic / Without this check 
+    // the password would get re - hashed unnecessarliy every time any field changes 
+
+    if (!this.isModified("password")) { // Return True only if Password is Change 
+        return next() // Skip Don't Hash Again 
     }
-    this.password = bcrypt.hash(this.password, 10) /* 10 is Round */
+
+    // Replce plan password with hash version before saving 
+    this.password = await bcrypt.hash(this.password, 10) /* 10 is Round */
     next()
 })
 
@@ -69,22 +91,25 @@ UserSchema.methods.isPassWordCorrect = async function (password) {
     return await bcrypt.compare(password, this.password) /* Crypto Graphy : Computatin power takes time */
 
     /* Comparing both the Password : String Vs Encrypted */
+
+
+    /* You can't reverse a hask back to original . So Bcrypt hashes the incoming password and compares the tow hashes  */
 }
 
 /* JWT TOKEN */
 UserSchema.methods.generateAccessToken = function () {
-    // It can Gen Token 
-    jwt.sign({
+    // It can Gen Token : Create's a Token 
+    return jwt.sign({
         _id: this._id,  // From MongoDB 
 
-        // From Our Side 
+        // From Our Side : Payload in JWT 
         email: this.email,
         username: this.username,
         fullName: this.fullName
     },
 
         process.env.ACCESS_TOKEN_SECRET,
-        // Expiry in Object 
+        // Expiry in Object /; How Long Token is Valid 
         {
             expiresIn: process.env.ACCESS_TOKEN_EXPIRY
         }
@@ -96,6 +121,10 @@ UserSchema.methods.generateAccessToken = function () {
 UserSchema.methods.generateRefreshToken = function () {
     jwt.sign({
         _id: this._id
+        /* Why Only _id ? in refresh token : 
+           Refresh token's only Job is to Identify the user to issue a new access token . It Does't 
+           need all the extra info 
+        */
     },
         process.env.REFRESH_TOKEN_SECRET,
         {
@@ -104,7 +133,7 @@ UserSchema.methods.generateRefreshToken = function () {
     )
 }
 
-
+/* Hasing During Sign Up and Comparing During Log in up */
 
 export const User = mongoose.model("User", UserSchema)
 
@@ -217,6 +246,8 @@ That's where this upper sitting mf's comes on the stage
 
     Cookie store's in our browser Always 
     Size : 4KB 
+    Stored in : Browser 
+    Stores : JWT Token and SessionID 
 
     If we come's in again : Server identify with our old sessionId and we get the web site access 
     
@@ -228,6 +259,29 @@ That's where this upper sitting mf's comes on the stage
     What is JWT ? 
     ------------
  The Full Form of JWT is Json Web Token .... 
+ 🎫 JWT (Modern Way)
+------------------------
+User logs in
+    └──> Server creates JWT (signed token with user info)
+            └──> Sends to browser (stored in cookie or memory)
+                    └──> Next request sends JWT in header/cookie
+                            └──> Server VERIFIES signature (no DB needed!)
+                                    └──> Extracts user info from token ✅
 
 
+
+*/
+
+
+/*
+🗂️ Session( Old School )
+----------------------
+User logs in
+    └──> Server creates session in its own database
+            └──> Generates random session ID: "sess_abc123"
+                    └──> Sends session ID to browser in cookie
+                            └──> Browser stores it
+                                    └──> Next request sends session ID
+                                            └──> Server looks up session in DB
+                                                    └──> Finds user ✅
 */
